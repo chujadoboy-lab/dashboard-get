@@ -231,7 +231,7 @@ export default function App() {
       <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 md:p-8 font-sans">
         <div className="w-full max-w-[1600px] mx-auto space-y-6">
           
-          {/* 헤더 섹션: 줄 간격 초밀착 조정 */}
+          {/* 헤더 섹션 */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
             <div className="flex flex-col">
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 m-0 p-0 leading-none mb-1">
@@ -280,7 +280,7 @@ export default function App() {
             <StatCard title="총 미수금액" value={dashboardStats.unpaidTotal} icon={<AlertCircle className="w-6 h-6 text-red-500" />} color="bg-red-50 dark:bg-red-900/30" valueColor="text-red-600 dark:text-red-400" />
           </div>
 
-          {/* 미수 리스트: 10개 행 고정 높이 */}
+          {/* 미수 리스트 */}
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col w-full">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
@@ -319,7 +319,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 작업 대기 목록: 폰트 20px로 더 축소 및 다크모드 완벽 대응 */}
+          {/* 작업 대기 목록: 폰트 18px로 축소 및 줄 간격(py-2) 축소 적용 */}
           <div 
             ref={tableContainerRef} 
             className={`bg-white dark:bg-slate-800 flex flex-col transition-all duration-300 ${
@@ -330,22 +330,23 @@ export default function App() {
           >
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 shrink-0">
               <div className="flex items-center gap-3">
-                <Clock className={`text-blue-500 dark:text-blue-400 ${isFullscreen ? 'w-10 h-10' : 'w-5 h-5'}`} />
-                {/* 제목 크기 조화롭게 세팅 */}
-                <h2 className={`font-bold text-slate-900 dark:text-white whitespace-nowrap ${isFullscreen ? 'text-[1.8rem]' : 'text-lg'}`}>작업 대기 목록</h2>
+                <Clock className={`text-blue-500 dark:text-blue-400 ${isFullscreen ? 'w-8 h-8' : 'w-5 h-5'}`} />
+                {/* 18px 폰트에 맞춰 제목 크기도 살짝 조절 */}
+                <h2 className={`font-bold text-slate-900 dark:text-white whitespace-nowrap ${isFullscreen ? 'text-[1.5rem]' : 'text-lg'}`}>작업 대기 목록</h2>
                 <div className="flex items-center ml-1">
-                  <span className={`bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 font-black rounded-full shadow-sm ${isFullscreen ? 'text-xl px-5 py-2' : 'text-sm px-4 py-1'}`}>
+                  <span className={`bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 font-black rounded-full shadow-sm ${isFullscreen ? 'text-lg px-4 py-1.5' : 'text-sm px-4 py-1'}`}>
                     {dashboardStats.pendingList.length}건
                   </span>
                 </div>
               </div>
               <div className="flex items-center gap-5">
-                <div className={`font-bold text-slate-900 dark:text-slate-200 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 ${isFullscreen ? 'text-xl px-5 py-2.5' : 'text-sm px-3 py-1.5'}`}>
+                {/* 시간 폰트 크기도 균형에 맞게 살짝 축소 */}
+                <div className={`font-bold text-slate-900 dark:text-slate-200 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 ${isFullscreen ? 'text-lg px-4 py-2' : 'text-sm px-3 py-1.5'}`}>
                   {formattedDate} 
                   <span className="ml-2 text-blue-600 dark:text-blue-400 font-bold">{formattedTime}</span>
                 </div>
-                <button onClick={toggleFullscreen} className={`text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isFullscreen ? 'p-3' : 'p-1.5'}`}>
-                  {isFullscreen ? <Minimize className="w-8 h-8" /> : <Maximize className="w-5 h-5" />}
+                <button onClick={toggleFullscreen} className={`text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isFullscreen ? 'p-2' : 'p-1.5'}`}>
+                  {isFullscreen ? <Minimize className="w-7 h-7" /> : <Maximize className="w-5 h-5" />}
                 </button>
               </div>
             </div>
@@ -354,35 +355,36 @@ export default function App() {
               <table className="w-full text-left border-collapse font-bold">
                 <thead className="sticky top-0 z-20 shadow-sm">
                   <tr className={`text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-slate-800 ${isFullscreen ? 'border-b-2 border-blue-300 dark:border-blue-600' : 'border-b border-blue-100 dark:border-blue-900/50'}`}>
-                    {/* 전체화면 테이블 헤더 폰트 20px로 변경 */}
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-4 text-[20px]' : 'px-4 py-3 text-sm'}`}>진행상태</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-4 text-[20px]' : 'px-4 py-3 text-sm'}`}>납기예정일</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-4 text-[20px]' : 'px-4 py-3 text-sm'}`}>상호</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-4 text-[20px]' : 'px-4 py-3 text-sm'}`}>품목</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-4 text-[20px]' : 'px-4 py-3 text-sm'}`}>후가공</th>
+                    {/* 전체화면 테이블 헤더: 폰트 18px, 위아래 여백(py-2) 축소로 조밀하게 변경 */}
+                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>진행상태</th>
+                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>납기예정일</th>
+                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>상호</th>
+                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>품목</th>
+                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>후가공</th>
                   </tr>
                 </thead>
                 <tbody className={`text-slate-900 dark:text-slate-100 ${isFullscreen ? 'divide-y-2 divide-slate-300 dark:divide-slate-600' : 'divide-y divide-slate-100 dark:divide-slate-700/50'}`}>
                   {dashboardStats.pendingList.length > 0 ? (
                     dashboardStats.pendingList.map((item, idx) => (
                       <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors bg-white dark:bg-slate-800">
-                        <td className={`whitespace-nowrap ${isFullscreen ? 'px-6 py-4' : 'px-4 py-3'}`}>
-                          {/* 진행상태 뱃지 글씨도 18px로 조화롭게 축소 */}
-                          <span className={`inline-flex items-center rounded-full font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 ${isFullscreen ? 'gap-2 py-1 px-4 text-[18px]' : 'gap-1.5 py-1 px-3 text-xs'}`}>
-                            <div className={`rounded-full bg-blue-500 dark:bg-blue-400 ${isFullscreen ? 'w-4 h-4' : 'w-1.5 h-1.5'}`}></div>
+                        {/* 전체화면 셀 위아래 여백(py-2) 축소 적용 */}
+                        <td className={`whitespace-nowrap ${isFullscreen ? 'px-6 py-2' : 'px-4 py-3'}`}>
+                          {/* 진행상태 뱃지 글씨도 16px로 맞춤 조절 */}
+                          <span className={`inline-flex items-center rounded-full font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 ${isFullscreen ? 'gap-1.5 py-1 px-3 text-[16px]' : 'gap-1.5 py-1 px-3 text-xs'}`}>
+                            <div className={`rounded-full bg-blue-500 dark:bg-blue-400 ${isFullscreen ? 'w-3 h-3' : 'w-1.5 h-1.5'}`}></div>
                             {item.status}
                           </span>
                         </td>
-                        {/* 전체화면 테이블 내용 폰트 20px로 변경 */}
-                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-4 text-[20px]' : 'px-4 py-3 text-sm'}`}>{item.deliveryDate}</td>
-                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-4 text-[20px]' : 'px-4 py-3 text-sm'}`}>{item.company}</td>
-                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-4 text-[20px]' : 'px-4 py-3 text-sm'}`}>{item.item}</td>
-                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-4 text-[20px]' : 'px-4 py-3 text-sm'}`}>{item.postProc}</td>
+                        {/* 전체화면 테이블 내용 폰트 18px 및 여백(py-2) 축소 적용 */}
+                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>{item.deliveryDate}</td>
+                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>{item.company}</td>
+                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>{item.item}</td>
+                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>{item.postProc}</td>
                       </tr>
                     ))
                   ) : (
                     <tr className="bg-white dark:bg-slate-800">
-                      <td colSpan="5" className={`text-center text-slate-500 dark:text-slate-400 font-bold ${isFullscreen ? 'py-10 text-[20px]' : 'py-10 text-sm'}`}>현재 대기 중인 작업이 없습니다.</td>
+                      <td colSpan="5" className={`text-center text-slate-500 dark:text-slate-400 font-bold ${isFullscreen ? 'py-8 text-[18px]' : 'py-10 text-sm'}`}>현재 대기 중인 작업이 없습니다.</td>
                     </tr>
                   )}
                 </tbody>
