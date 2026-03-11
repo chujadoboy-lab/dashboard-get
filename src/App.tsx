@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
-  TrendingUp, Calendar, AlertCircle, Clock, RefreshCcw, DollarSign, CreditCard, Package, Maximize, Minimize, Moon, Sun
+  TrendingUp, Calendar, AlertCircle, Clock, RefreshCcw, DollarSign, CreditCard, CheckCircle2, Package, Maximize, Minimize, Moon, Sun
 } from 'lucide-react';
 
 // --- 샘플 데이터 (구글 시트 연동 전 표시용) ---
@@ -26,11 +26,22 @@ export default function App() {
   const [now, setNow] = useState(new Date()); 
   const tableContainerRef = useRef(null);
 
-  // 다크모드 및 Tailwind 설정 강제 적용
+  // 🌟 [핵심] 잃어버린 디자인 도구 자동 주입 & 다크모드 설정
   useEffect(() => {
-    if (window.tailwind) {
+    // 1. 사용자가 index.html을 수정하지 않아도 자동으로 디자인 도구(Tailwind)를 불러옵니다.
+    if (!document.getElementById('tailwind-cdn-script')) {
+      const script = document.createElement('script');
+      script.id = 'tailwind-cdn-script';
+      script.src = 'https://cdn.tailwindcss.com';
+      script.onload = () => {
+        if (window.tailwind) window.tailwind.config = { darkMode: 'class' };
+      };
+      document.head.appendChild(script);
+    } else if (window.tailwind) {
       window.tailwind.config = { darkMode: 'class' };
     }
+
+    // 2. 다크모드 화면 제어
     const html = document.documentElement;
     if (isDarkMode) {
       html.classList.add('dark');
@@ -39,15 +50,18 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // 실시간 시계 업데이트
+  // 실시간 시계 업데이트 (1초 주기)
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
   // 구글 시트 데이터 가져오기
   const fetchSheetData = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
+    
     const sheetId = '1HHT5zM80NA0WDa2Zq71MANTaRMqBt5Smr1Pdvz1x_6w';
     const baseUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
 
@@ -59,7 +73,11 @@ export default function App() {
       const cols = jsonData.table.cols.map(col => col.label?.trim() || 'Unknown');
       return jsonData.table.rows.map(row => {
         const rowData = {};
-        row.c.forEach((cell, i) => { if (cols[i] !== 'Unknown') rowData[cols[i]] = cell ? (cell.f || cell.v) : ''; });
+        row.c.forEach((cell, i) => {
+          if (cols[i] !== 'Unknown') {
+            rowData[cols[i]] = cell ? (cell.f || cell.v) : '';
+          }
+        });
         return rowData;
       });
     };
@@ -70,11 +88,15 @@ export default function App() {
       try {
         const parsedExpenseData = await fetchGvizData(`${baseUrl}&sheet=지출현황`);
         setExpenseData(parsedExpenseData);
-      } catch (e) { setExpenseData([]); }
+      } catch (e) {
+        setExpenseData([]);
+      }
     } catch (err) {
       setSalesData(mockData);
       setExpenseData(mockExpenseData);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -83,18 +105,27 @@ export default function App() {
     return () => clearInterval(intervalId);
   }, []);
 
+  // 전체화면 토글 로직 수정: 브라우저 API에 의존하지 않고 리액트 상태로 직접 제어
   const toggleFullscreen = () => {
-    if (isFullscreen) {
-      if (document.exitFullscreen) document.exitFullscreen();
-    } else {
-      if (tableContainerRef.current?.requestFullscreen) tableContainerRef.current.requestFullscreen();
-    }
+    setIsFullscreen(!isFullscreen);
+    try {
+      if (!isFullscreen && document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else if (isFullscreen && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    } catch (e) {}
   };
 
+  // Esc 키를 누르면 전체화면 해제
   useEffect(() => {
-    const handleFsChange = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', handleFsChange);
-    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const parseNumber = (val) => {
@@ -186,7 +217,7 @@ export default function App() {
 
   return (
     <div className="dashboard-container">
-      {/* NUCLEAR RESET: 기존 스타일 무력화 및 다크모드 배경 고정 */}
+      {/* NUCLEAR RESET: 기존 스타일 무력화 및 다크모드 완벽 대응 */}
       <style>{`
         html, body { margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; min-height: 100vh !important; display: block !important; }
         html.dark body { background-color: #0f172a !important; }
@@ -285,7 +316,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* 작업 대기 목록: 전체화면 30px 및 다크모드 하얀 글씨 최적화 */}
+          {/* 작업 대기 목록: 전체화면 25px 및 다크모드 하얀 글씨 최적화 */}
           <div 
             ref={tableContainerRef} 
             className={`bg-white dark:bg-slate-800 flex flex-col transition-all duration-300 ${
@@ -319,11 +350,11 @@ export default function App() {
               <table className="w-full text-left border-collapse font-bold">
                 <thead className="sticky top-0 z-20 shadow-sm">
                   <tr className={`text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-slate-800 ${isFullscreen ? 'border-b-2 border-blue-300 dark:border-blue-600' : 'border-b border-blue-100 dark:border-blue-900/50'}`}>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-8 py-3 text-[30px]' : 'px-4 py-3 text-sm'}`}>진행상태</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-8 py-3 text-[30px]' : 'px-4 py-3 text-sm'}`}>납기예정일</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-8 py-3 text-[30px]' : 'px-4 py-3 text-sm'}`}>상호</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-8 py-3 text-[30px]' : 'px-4 py-3 text-sm'}`}>품목</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-8 py-3 text-[30px]' : 'px-4 py-3 text-sm'}`}>후가공</th>
+                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-8 py-3 text-[25px]' : 'px-4 py-3 text-sm'}`}>진행상태</th>
+                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-8 py-3 text-[25px]' : 'px-4 py-3 text-sm'}`}>납기예정일</th>
+                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-8 py-3 text-[25px]' : 'px-4 py-3 text-sm'}`}>상호</th>
+                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-8 py-3 text-[25px]' : 'px-4 py-3 text-sm'}`}>품목</th>
+                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-8 py-3 text-[25px]' : 'px-4 py-3 text-sm'}`}>후가공</th>
                   </tr>
                 </thead>
                 <tbody className={`text-slate-900 dark:text-slate-100 ${isFullscreen ? 'divide-y-2 divide-slate-300 dark:divide-slate-600' : 'divide-y divide-slate-100 dark:divide-slate-700/50'}`}>
@@ -331,20 +362,20 @@ export default function App() {
                     dashboardStats.pendingList.map((item, idx) => (
                       <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors bg-white dark:bg-slate-800">
                         <td className={`whitespace-nowrap ${isFullscreen ? 'px-8 py-3' : 'px-4 py-3'}`}>
-                          <span className={`inline-flex items-center rounded-full font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 ${isFullscreen ? 'gap-3 py-1.5 px-6 text-[26px]' : 'gap-1.5 py-1 px-3 text-xs'}`}>
+                          <span className={`inline-flex items-center rounded-full font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 ${isFullscreen ? 'gap-3 py-1.5 px-6 text-[22px]' : 'gap-1.5 py-1 px-3 text-xs'}`}>
                             <div className={`rounded-full bg-blue-500 dark:bg-blue-400 ${isFullscreen ? 'w-5 h-5' : 'w-1.5 h-1.5'}`}></div>
                             {item.status}
                           </span>
                         </td>
-                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-8 py-3 text-[30px]' : 'px-4 py-3 text-sm'}`}>{item.deliveryDate}</td>
-                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-8 py-3 text-[30px]' : 'px-4 py-3 text-sm'}`}>{item.company}</td>
-                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-8 py-3 text-[30px]' : 'px-4 py-3 text-sm'}`}>{item.item}</td>
-                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-8 py-3 text-[30px]' : 'px-4 py-3 text-sm'}`}>{item.postProc}</td>
+                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-8 py-3 text-[25px]' : 'px-4 py-3 text-sm'}`}>{item.deliveryDate}</td>
+                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-8 py-3 text-[25px]' : 'px-4 py-3 text-sm'}`}>{item.company}</td>
+                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-8 py-3 text-[25px]' : 'px-4 py-3 text-sm'}`}>{item.item}</td>
+                        <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-8 py-3 text-[25px]' : 'px-4 py-3 text-sm'}`}>{item.postProc}</td>
                       </tr>
                     ))
                   ) : (
                     <tr className="bg-white dark:bg-slate-800">
-                      <td colSpan="5" className={`text-center text-slate-500 dark:text-slate-400 font-bold ${isFullscreen ? 'py-10 text-[30px]' : 'py-10 text-sm'}`}>현재 대기 중인 작업이 없습니다.</td>
+                      <td colSpan="5" className={`text-center text-slate-500 dark:text-slate-400 font-bold ${isFullscreen ? 'py-10 text-[25px]' : 'py-10 text-sm'}`}>현재 대기 중인 작업이 없습니다.</td>
                     </tr>
                   )}
                 </tbody>
@@ -368,7 +399,7 @@ function StatCard({ title, value, icon, color, valueColor = "text-slate-900 dark
         </div>
         <p className={`text-2xl font-bold ${valueColor}`}>
           {new Intl.NumberFormat('ko-KR').format(value)}
-          <span className="text-base font-normal text-slate-500 dark:text-gray-400 ml-1">원</span>
+          <span className="text-base font-normal text-slate-500 dark:text-slate-400 ml-1">원</span>
         </p>
       </div>
     </div>
