@@ -4,7 +4,6 @@ import {
 } from 'lucide-react';
 
 // 🌟 [핵심] 잃어버린 디자인 도구(Tailwind) 자동 주입 & 다크모드 완벽 설정
-// 사용자가 실수로 index.html을 수정하지 않아도 자동으로 디자인과 다크모드를 활성화합니다.
 if (typeof window !== 'undefined') {
   if (!document.querySelector('script[src*="tailwindcss"]')) {
     const configScript = document.createElement('script');
@@ -145,6 +144,7 @@ export default function App() {
     const monthlyExpenseMap = {};
     const unpaidList = [];
     const pendingList = [];
+    const readyToShipList = []; // 🌟 출고 대기(완료) 목록 배열 추가
 
     const getField = (row, possibleNames) => {
       const key = Object.keys(row).find(k => possibleNames.some(name => k.includes(name)));
@@ -169,13 +169,20 @@ export default function App() {
         monthlySalesMap[monthStr] = (monthlySalesMap[monthStr] || 0) + sales;
       }
 
+      // 미수금 목록
       if (payment.includes('미수')) {
         unpaidTotal += sales;
         unpaidList.push({ date: dateStr, company, contact, sales, item, deliveryDate });
       }
 
+      // 작업 대기 목록 (대기 상태 & 인쇄물 제외)
       if (status.includes('대기') && !item.includes('인쇄물')) {
         pendingList.push({ status: '대기', deliveryDate, company, item, postProc });
+      }
+
+      // 🌟 출고 대기 목록 (상태가 '완료'인 경우)
+      if (status.includes('완료')) {
+        readyToShipList.push({ date: dateStr, company, contact, sales, item, deliveryDate });
       }
     });
 
@@ -193,8 +200,10 @@ export default function App() {
 
     return { 
       dailySalesMap, monthlySalesMap, monthlyExpenseMap, availableDates, 
-      availableMonths, unpaidTotal, unpaidList: unpaidList.sort((a, b) => new Date(a.date) - new Date(b.date)), 
-      pendingList: pendingList.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate))
+      availableMonths, unpaidTotal, 
+      unpaidList: unpaidList.sort((a, b) => new Date(a.date) - new Date(b.date)), 
+      pendingList: pendingList.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate)),
+      readyToShipList: readyToShipList.sort((a, b) => new Date(a.date) - new Date(b.date)) // 날짜순 정렬
     };
   }, [salesData, expenseData]);
 
@@ -319,6 +328,51 @@ export default function App() {
             </div>
           </div>
 
+          {/* 🌟 출고 대기 목록 (새로 추가됨) */}
+          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5" />
+                출고 대기 목록
+              </h2>
+              <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 text-sm font-black px-4 py-1 rounded-full shadow-sm">
+                {dashboardStats.readyToShipList.length}건
+              </span>
+            </div>
+            {/* 15개 정도 보이도록 높이를 720px로 설정 */}
+            <div className="overflow-auto scroll-smooth" style={{ maxHeight: '720px' }}>
+              <table className="w-full text-left border-collapse font-bold">
+                <thead className="sticky top-0 z-20 shadow-sm">
+                  <tr className="text-sm font-bold text-slate-800 dark:text-slate-200 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+                    <th className="py-3 px-4 whitespace-nowrap">주문일</th>
+                    <th className="py-3 px-4 whitespace-nowrap">상호</th>
+                    <th className="py-3 px-4 whitespace-nowrap">연락처</th>
+                    <th className="py-3 px-4 whitespace-nowrap">품목</th>
+                    <th className="py-3 px-4 whitespace-nowrap">납기일</th>
+                    <th className="py-3 px-4 text-right whitespace-nowrap">금액</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {dashboardStats.readyToShipList.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                      <td className="py-3 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">{item.date}</td>
+                      <td className="py-3 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">{item.company}</td>
+                      <td className="py-3 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">{item.contact}</td>
+                      <td className="py-3 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">{item.item}</td>
+                      <td className="py-3 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 whitespace-nowrap">{item.deliveryDate}</td>
+                      <td className="py-3 px-4 text-sm font-bold text-slate-900 dark:text-slate-100 text-right whitespace-nowrap">{new Intl.NumberFormat('ko-KR').format(item.sales)}원</td>
+                    </tr>
+                  ))}
+                  {dashboardStats.readyToShipList.length === 0 && (
+                    <tr className="bg-white dark:bg-slate-800">
+                      <td colSpan="6" className="text-center text-slate-500 dark:text-slate-400 font-bold py-10 text-sm">현재 출고 대기 중인 작업이 없습니다.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           {/* 작업 대기 목록: 폰트 18px로 축소 및 줄 간격(py-2) 축소 적용 */}
           <div 
             ref={tableContainerRef} 
@@ -331,7 +385,6 @@ export default function App() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 shrink-0">
               <div className="flex items-center gap-3">
                 <Clock className={`text-blue-500 dark:text-blue-400 ${isFullscreen ? 'w-8 h-8' : 'w-5 h-5'}`} />
-                {/* 18px 폰트에 맞춰 제목 크기도 살짝 조절 */}
                 <h2 className={`font-bold text-slate-900 dark:text-white whitespace-nowrap ${isFullscreen ? 'text-[1.5rem]' : 'text-lg'}`}>작업 대기 목록</h2>
                 <div className="flex items-center ml-1">
                   <span className={`bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 font-black rounded-full shadow-sm ${isFullscreen ? 'text-lg px-4 py-1.5' : 'text-sm px-4 py-1'}`}>
@@ -340,7 +393,6 @@ export default function App() {
                 </div>
               </div>
               <div className="flex items-center gap-5">
-                {/* 시간 폰트 크기도 균형에 맞게 살짝 축소 */}
                 <div className={`font-bold text-slate-900 dark:text-slate-200 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 ${isFullscreen ? 'text-lg px-4 py-2' : 'text-sm px-3 py-1.5'}`}>
                   {formattedDate} 
                   <span className="ml-2 text-blue-600 dark:text-blue-400 font-bold">{formattedTime}</span>
@@ -355,7 +407,6 @@ export default function App() {
               <table className="w-full text-left border-collapse font-bold">
                 <thead className="sticky top-0 z-20 shadow-sm">
                   <tr className={`text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-slate-800 ${isFullscreen ? 'border-b-2 border-blue-300 dark:border-blue-600' : 'border-b border-blue-100 dark:border-blue-900/50'}`}>
-                    {/* 전체화면 테이블 헤더: 폰트 18px, 위아래 여백(py-2) 축소로 조밀하게 변경 */}
                     <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>진행상태</th>
                     <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>납기예정일</th>
                     <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>상호</th>
@@ -367,15 +418,12 @@ export default function App() {
                   {dashboardStats.pendingList.length > 0 ? (
                     dashboardStats.pendingList.map((item, idx) => (
                       <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors bg-white dark:bg-slate-800">
-                        {/* 전체화면 셀 위아래 여백(py-2) 축소 적용 */}
                         <td className={`whitespace-nowrap ${isFullscreen ? 'px-6 py-2' : 'px-4 py-3'}`}>
-                          {/* 진행상태 뱃지 글씨도 16px로 맞춤 조절 */}
                           <span className={`inline-flex items-center rounded-full font-bold bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 ${isFullscreen ? 'gap-1.5 py-1 px-3 text-[16px]' : 'gap-1.5 py-1 px-3 text-xs'}`}>
                             <div className={`rounded-full bg-blue-500 dark:bg-blue-400 ${isFullscreen ? 'w-3 h-3' : 'w-1.5 h-1.5'}`}></div>
                             {item.status}
                           </span>
                         </td>
-                        {/* 전체화면 테이블 내용 폰트 18px 및 여백(py-2) 축소 적용 */}
                         <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>{item.deliveryDate}</td>
                         <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>{item.company}</td>
                         <td className={`font-bold whitespace-nowrap ${isFullscreen ? 'px-6 py-2 text-[18px]' : 'px-4 py-3 text-sm'}`}>{item.item}</td>
