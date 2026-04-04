@@ -389,7 +389,8 @@ export default function App() {
                 : 'shadow-sm border border-slate-200 dark:border-slate-700 p-6 rounded-2xl overflow-hidden relative'
             }`}
           >
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 shrink-0">
+            {/* mb-2 였던 여백을 출고 대기 목록과 동일하게 mb-4로 변경했습니다. */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 shrink-0">
               <div className="flex items-center gap-3">
                 <Clock className={`text-blue-500 dark:text-blue-400 ${isFullscreen ? 'w-8 h-8' : 'w-5 h-5'}`} />
                 <h2 className={`text-slate-900 dark:text-white whitespace-nowrap font-bold ${isFullscreen ? 'text-[1.7rem]' : 'text-lg'}`}>작업 대기 목록</h2>
@@ -400,9 +401,10 @@ export default function App() {
                 </div>
               </div>
               <div className="flex items-center gap-5">
-                <div className={`text-slate-900 dark:text-slate-200 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 font-bold ${isFullscreen ? 'text-[21px] px-5 py-2.5' : 'text-sm px-3 py-1.5'}`}>
+                {/* 🌟 건수 뱃지(6건)와 글자 크기 및 박스 여백을 완벽하게 동일하게 맞춤 (flex items-center 추가 및 패딩 조정) */}
+                <div className={`flex items-center text-slate-900 dark:text-slate-200 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 font-bold ${isFullscreen ? 'text-[21px] px-5 py-2' : 'text-sm px-4 py-1'}`}>
                   {formattedDate} 
-                  <span className={`ml-2 text-blue-600 dark:text-blue-400 font-bold`}>{formattedTime}</span>
+                  <span className="ml-2 text-blue-600 dark:text-blue-400 font-bold">{formattedTime}</span>
                 </div>
                 <button onClick={toggleFullscreen} className={`text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isFullscreen ? 'p-2' : 'p-1.5'}`}>
                   {isFullscreen ? <Minimize className="w-7 h-7" /> : <Maximize className="w-5 h-5" />}
@@ -414,7 +416,6 @@ export default function App() {
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 z-20 shadow-sm">
                   <tr className={`text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-slate-800 ${isFullscreen ? 'border-b-2 border-blue-300 dark:border-blue-600' : 'border-b border-blue-100 dark:border-blue-900/50'}`}>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>진행상태</th>
                     <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>납기예정일</th>
                     <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>상호</th>
                     <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>품목</th>
@@ -425,12 +426,6 @@ export default function App() {
                   {dashboardStats.pendingList.length > 0 ? (
                     dashboardStats.pendingList.map((item, idx) => (
                       <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors bg-white dark:bg-slate-800">
-                        <td className={`whitespace-nowrap ${isFullscreen ? 'px-6 py-2' : 'px-4 py-3'}`}>
-                          <span className={`inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 font-bold ${isFullscreen ? 'gap-1.5 py-1 px-3 text-[18px]' : 'gap-1.5 py-1 px-3 text-xs'}`}>
-                            <div className={`rounded-full bg-blue-500 dark:bg-blue-400 ${isFullscreen ? 'w-3 h-3' : 'w-1.5 h-1.5'}`}></div>
-                            {item.status}
-                          </span>
-                        </td>
                         <td className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>{item.deliveryDate}</td>
                         <td className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>{item.company}</td>
                         <td className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>{item.item}</td>
@@ -439,7 +434,7 @@ export default function App() {
                     ))
                   ) : (
                     <tr className="bg-white dark:bg-slate-800">
-                      <td colSpan="5" className={`text-center text-slate-500 dark:text-slate-400 font-bold ${isFullscreen ? 'py-8 text-[21px]' : 'py-10 text-sm'}`}>현재 대기 중인 작업이 없습니다.</td>
+                      <td colSpan="4" className={`text-center text-slate-500 dark:text-slate-400 font-bold ${isFullscreen ? 'py-8 text-[21px]' : 'py-10 text-sm'}`}>현재 대기 중인 작업이 없습니다.</td>
                     </tr>
                   )}
                 </tbody>
