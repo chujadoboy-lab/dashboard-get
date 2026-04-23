@@ -253,7 +253,7 @@ export default function App() {
             <div className="flex flex-col">
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 m-0 p-0 leading-none mb-1">
                 <Package className="text-blue-600 dark:text-blue-400" />
-                디자인겟 매출 현황
+                작업 대기 현황
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 m-0 p-0 leading-none">
                 디자인겟 주문 현황 실시간 연동 대시보드 <span className="text-blue-500 dark:text-blue-400 font-bold">(30초 주기 자동 업데이트)</span>
