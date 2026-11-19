@@ -1,339 +1,317 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { 
-  TrendingUp, Calendar, AlertCircle, Clock, RefreshCcw, DollarSign, CreditCard, CheckCircle2, Package, Maximize, Minimize, Moon, Sun
-} from 'lucide-react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-// 🌟 [핵심] 잃어버린 디자인 도구(Tailwind) 자동 주입 & 다크모드 완벽 설정
-if (typeof window !== 'undefined') {
-  if (!document.querySelector('script[src*="tailwindcss"]')) {
-    const configScript = document.createElement('script');
-    configScript.innerHTML = `window.tailwind = { config: { darkMode: 'class' } };`;
-    document.head.appendChild(configScript);
+// 디자인겟 대시보드와 같은 구글시트입니다.
+const CONFIG = {
+  sheetId: '1HHT5zM80NA0WDa2Zq71MANTaRMqBt5Smr1Pdvz1x_6w',
+  sheetName: '주문현황',
+  refreshMilliseconds: 30_000,
+  pageMilliseconds: 12_000,
+};
 
-    const tailwindScript = document.createElement('script');
-    tailwindScript.src = 'https://cdn.tailwindcss.com';
-    document.head.appendChild(tailwindScript);
-  } else if (window.tailwind) {
-    window.tailwind.config = { darkMode: 'class' };
-  }
+interface Order {
+  index: number;
+  due: string;
+  company: string;
+  item: string;
+  finishing: string;
 }
 
-// --- 샘플 데이터 (구글 시트 연동 전 표시용) ---
-const mockData = [
-  { 날짜: '2023-10-25', 매출: 150000, 결제방식: '카드', 진행상태: '완료', 납기예정일: '2023-10-26', 상호: '에이원컴퍼니', 연락처: '010-1111-2222', 품목: '현수막 50장', 후가공: '사방타공' },
-  { 날짜: '2023-10-25', 매출: 320000, 결제방식: '미수', 진행상태: '대기', 납기예정일: '2023-10-28', 상호: '세종디자인', 연락처: '010-3333-4444', 품목: '라텍스 실사', 후가공: '무광코팅' },
-  { 날짜: '2023-10-26', 매출: 450000, 결제방식: '미수', 진행상태: '대기', 납기예정일: '2023-10-30', 상호: '픽스디자인', 연락처: '010-7777-8888', 품목: '아크릴 현판', 후가공: '양면테이프' },
-  { 날짜: '2023-10-28', 매출: 550000, 결제방식: '미수', 진행상태: '대기', 납기예정일: '2023-11-02', 상호: 'LG전자', 연락처: '010-1234-5678', 품목: '대형 현수막', 후가공: '로프미싱' },
-];
-
-const mockExpenseData = [
-  { 날짜: '2023-10-25', 지출금액: 50000, 내용: '사무용품' },
-];
-
-export default function App() {
-  const [salesData, setSalesData] = useState([]);
-  const [expenseData, setExpenseData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('');
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [now, setNow] = useState(new Date()); 
-  const tableContainerRef = useRef(null);
-
-  // 다크모드 화면 제어
-  useEffect(() => {
-    const html = document.documentElement;
-    if (isDarkMode) {
-      html.classList.add('dark');
-    } else {
-      html.classList.remove('dark');
-    }
-  }, [isDarkMode]);
-
-  // 실시간 시계 업데이트 (1초 주기)
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setNow(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // 구글 시트 데이터 가져오기
-  const fetchSheetData = async (isBackground = false) => {
-    if (!isBackground) setLoading(true);
-    
-    const sheetId = '1HHT5zM80NA0WDa2Zq71MANTaRMqBt5Smr1Pdvz1x_6w';
-    const baseUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
-
-    const fetchGvizData = async (url) => {
-      const response = await fetch(url);
-      const text = await response.text();
-      const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\);/);
-      if (!match) return [];
-      const jsonData = JSON.parse(match[1]);
-      const cols = jsonData.table.cols.map(col => col.label?.trim() || 'Unknown');
-      return jsonData.table.rows.map(row => {
-        const rowData = {};
-        row.c.forEach((cell, i) => {
-          if (cols[i] !== 'Unknown') {
-            rowData[cols[i]] = cell ? (cell.f || cell.v) : '';
-          }
-        });
-        return rowData;
-      });
-    };
-
-    try {
-      const parsedSalesData = await fetchGvizData(baseUrl);
-      setSalesData(parsedSalesData);
-      try {
-        const parsedExpenseData = await fetchGvizData(`${baseUrl}&sheet=지출현황`);
-        setExpenseData(parsedExpenseData);
-      } catch (e) {
-        setExpenseData([]);
-      }
-    } catch (err) {
-      setSalesData(mockData);
-      setExpenseData(mockExpenseData);
-    } finally {
-      setLoading(false);
-    }
+interface SheetResponse {
+  status?: string;
+  table?: {
+    cols: Array<{ label?: string }>;
+    rows: Array<{ c: Array<{ v?: unknown } | null> }>;
   };
+}
 
-  useEffect(() => {
-    fetchSheetData();
-    const intervalId = setInterval(() => fetchSheetData(true), 30000); 
-    return () => clearInterval(intervalId);
-  }, []);
+function headerKey(value: string): string {
+  return value.replace(/\s/g, '');
+}
 
-  // 전체화면 토글 로직
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
-    try {
-      if (!isFullscreen && document.documentElement.requestFullscreen) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      } else if (isFullscreen && document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
-      }
-    } catch (e) {}
-  };
+function field(record: Record<string, unknown>, names: string[]): string {
+  const keys = Object.keys(record);
+  const exact = names
+    .map((name) => keys.find((key) => headerKey(key) === name))
+    .find(Boolean);
+  const key = exact || keys.find((candidate) =>
+    names.some((name) => headerKey(candidate).includes(name)),
+  );
+  return key ? String(record[key] ?? '').trim() : '';
+}
 
-  // Esc 키를 누르면 전체화면 해제
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setIsFullscreen(false);
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+function dateText(value: string): string {
+  // Google gviz 날짜의 월은 0부터 시작합니다.
+  const googleDate = value.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})(?:,|\))/);
+  if (googleDate) {
+    return `${googleDate[1]}-${String(Number(googleDate[2]) + 1).padStart(2, '0')}-${googleDate[3].padStart(2, '0')}`;
+  }
+  const ordinary = value.match(/^(\d{4})[.\/-]\s*(\d{1,2})[.\/-]\s*(\d{1,2})/);
+  if (ordinary) {
+    return `${ordinary[1]}-${ordinary[2].padStart(2, '0')}-${ordinary[3].padStart(2, '0')}`;
+  }
+  return value || '-';
+}
 
-  const parseNumber = (val) => {
-    if (typeof val === 'number') return val;
-    if (!val) return 0;
-    const num = Number(val.toString().replace(/[^0-9.-]+/g,""));
-    return isNaN(num) ? 0 : num;
-  };
-
-  const dashboardStats = useMemo(() => {
-    let unpaidTotal = 0;
-    const dailySalesMap = {};
-    const monthlySalesMap = {};
-    const monthlyExpenseMap = {};
-    const unpaidList = [];
-    const pendingList = [];
-    const readyToShipList = []; 
-
-    const getField = (row, possibleNames) => {
-      const key = Object.keys(row).find(k => possibleNames.some(name => k.includes(name)));
-      return key ? row[key] : '';
-    };
-
-    salesData.forEach(row => {
-      const dateStr = getField(row, ['날짜', '일자', '등록일', '접수일', '주문일']) || '미상';
-      const sales = parseNumber(getField(row, ['매출', '금액', '합계', '단가']));
-      const payment = getField(row, ['결제방식', '결제', '수금'])?.toString() || '';
-      const status = getField(row, ['진행상태', '상태'])?.toString() || '';
-      const deliveryDate = getField(row, ['납기예정일', '납기일']) || '-';
-      const company = getField(row, ['상호', '업체명', '거래처']) || '-';
-      const contact = getField(row, ['연락처', '전화번호', '핸드폰', '휴대폰']) || '-';
-      const item = getField(row, ['품목', '상품명', '내용']) || '-';
-      const postProc = getField(row, ['후가공', '비고']) || '-';
-
-      if (dateStr !== '미상') {
-        const shortDate = dateStr.split(' ')[0];
-        const monthStr = shortDate.substring(0, 7);
-        dailySalesMap[shortDate] = (dailySalesMap[shortDate] || 0) + sales;
-        monthlySalesMap[monthStr] = (monthlySalesMap[monthStr] || 0) + sales;
-      }
-
-      // 미수금 목록
-      if (payment.includes('미수')) {
-        unpaidTotal += sales;
-        unpaidList.push({ date: dateStr, company, contact, sales, item, deliveryDate });
-      }
-
-      // 작업 대기 목록 (대기 상태 & 인쇄물 제외)
-      if (status.includes('대기') && !item.includes('인쇄물')) {
-        pendingList.push({ status: '대기', deliveryDate, company, item, postProc });
-      }
-
-      // 출고 대기 목록 (상태가 '완료'인 경우)
-      if (status.includes('완료')) {
-        readyToShipList.push({ date: dateStr, company, contact, sales, item, deliveryDate });
-      }
-    });
-
-    expenseData.forEach(row => {
-      const dateStr = getField(row, ['날짜', '일자', '지출일', '등록일']) || '미상';
-      const expense = parseNumber(getField(row, ['지출금액', '금액', '지출', '합계']));
-      if (dateStr !== '미상') {
-        const monthStr = dateStr.split(' ')[0].substring(0, 7);
-        monthlyExpenseMap[monthStr] = (monthlyExpenseMap[monthStr] || 0) + expense;
-      }
-    });
-
-    const availableDates = Object.keys(dailySalesMap).sort((a, b) => new Date(b) - new Date(a));
-    const availableMonths = Object.keys(monthlySalesMap).sort((a, b) => new Date(b) - new Date(a));
-
-    return { 
-      dailySalesMap, monthlySalesMap, monthlyExpenseMap, availableDates, 
-      availableMonths, unpaidTotal, 
-      unpaidList: unpaidList.sort((a, b) => new Date(a.date) - new Date(b.date)), 
-      pendingList: pendingList.sort((a, b) => new Date(a.deliveryDate) - new Date(b.deliveryDate)),
-      readyToShipList: readyToShipList.sort((a, b) => new Date(a.date) - new Date(b.date))
-    };
-  }, [salesData, expenseData]);
-
-  useEffect(() => {
-    if (dashboardStats.availableDates.length > 0) {
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      if (!selectedDate) setSelectedDate(dashboardStats.availableDates.includes(todayStr) ? todayStr : dashboardStats.availableDates[0]);
-      if (!selectedMonth) setSelectedMonth(todayStr.substring(0, 7));
-    }
-  }, [dashboardStats.availableDates, now]);
-
-  const displayTodaySales = dashboardStats.dailySalesMap[selectedDate] || 0;
-  const displayMonthlySales = dashboardStats.monthlySalesMap[selectedMonth] || 0;
-  const displayMonthlyExpense = dashboardStats.monthlyExpenseMap[selectedMonth] || 0;
-  const displayMonthlyProfit = displayMonthlySales - displayMonthlyExpense;
-
-  const formattedDate = now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
-  // 🌟 시계에서 초단위 제거 ('시/분' 만 표시)
-  const formattedTime = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-screen bg-slate-50 dark:bg-slate-900 transition-colors"><RefreshCcw className="w-12 h-12 text-blue-500 animate-spin" /></div>;
+function parseOrders(text: string): Order[] {
+  const prefix = 'google.visualization.Query.setResponse(';
+  const start = text.indexOf(prefix);
+  const end = text.lastIndexOf(');');
+  if (start < 0 || end < start + prefix.length) {
+    throw new Error('주문현황 시트 응답을 확인해 주세요.');
+  }
+  const response = JSON.parse(text.slice(start + prefix.length, end)) as SheetResponse;
+  if (response.status === 'error' || !response.table) {
+    throw new Error('주문현황 시트 연결을 확인해 주세요.');
+  }
+  const headers = response.table.cols.map((column) => (column.label || '').trim());
+  if (!headers.some((header) => ['진행상태', '진행', '상태'].includes(headerKey(header)))) {
+    throw new Error('주문현황 시트의 진행상태 열을 확인해 주세요.');
   }
 
+  const orders: Order[] = [];
+  response.table.rows.forEach((row, index) => {
+    const record: Record<string, unknown> = {};
+    headers.forEach((header, column) => {
+      if (header) record[header] = row.c[column]?.v ?? '';
+    });
+    const status = field(record, ['진행상태', '진행', '상태']);
+    const item = field(record, ['품목', '상품명']);
+    if (!status.includes('대기') || headerKey(item).includes('추첨')) return;
+    const project = field(record, ['주문건명']);
+    orders.push({
+      index,
+      due: dateText(field(record, ['납기예정일', '납기일'])),
+      company: field(record, ['상호', '업체명']) || '-',
+      item: [item, project].filter(Boolean).join(' · ') || '-',
+      finishing: field(record, ['후가공', '비고']) || '-',
+    });
+  });
+
+  const sortDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : '9999-99-99';
+  return orders.sort((a, b) => sortDate(a.due).localeCompare(sortDate(b.due)) || b.index - a.index);
+}
+
+const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  weekday: 'long', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+});
+
+function Clock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const parts = Object.fromEntries(dateFormatter.formatToParts(now).map((part) => [part.type, part.value]));
   return (
-    <div className="dashboard-container">
-      {/* 방해 스타일 완전 무력화 및 다크모드/TV환경(폰트/굵기) 완벽 대응 */}
-      <style>{`
-        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-        /* TV에서 확실하게 먹히는 Noto Sans KR 900 굵기 강제 추가 호출 */
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
-        
-        html, body { 
-          font-family: 'Pretendard', 'Noto Sans KR', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif !important; 
-          margin: 0 !important; padding: 0 !important; width: 100% !important; height: 100% !important; min-height: 100vh !important; display: block !important; 
-        }
-        html.dark body { background-color: #0f172a !important; }
-        #root { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important; display: block !important; text-align: left !important; }
-        .dashboard-container * { transition: background-color 0.2s, border-color 0.2s, color 0.2s; }
-      `}</style>
+    <time className="dg-tv-clock" dateTime={now.toISOString()}>
+      {parts.year}년 {parts.month}월 {parts.day}일 {parts.weekday}
+      <span>{parts.hour}:{parts.minute}</span>
+    </time>
+  );
+}
 
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 p-4 md:p-8 font-sans">
-        <div className="w-full max-w-[1600px] mx-auto space-y-6">
-          
-          {/* 헤더 섹션 */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
-            <div className="flex flex-col">
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2 m-0 p-0 leading-none mb-1">
-                <Package className="text-blue-600 dark:text-blue-400" />
-                작업 대기 현황
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 m-0 p-0 leading-none">
-                디자인겟 주문 현황 실시간 연동 대시보드 <span className="text-blue-500 dark:text-blue-400 font-bold">(30초 주기 자동 업데이트)</span>
-              </p>
-            </div>
-            <div className="mt-4 md:mt-0 flex items-center gap-2">
-              <button onClick={() => setIsDarkMode(!isDarkMode)} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 font-bold shadow-sm">
-                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                {isDarkMode ? '라이트모드' : '다크모드'}
-              </button>
-              <button onClick={() => fetchSheetData(false)} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 font-bold shadow-sm">
-                <RefreshCcw className="w-4 h-4" />
-                새로고침
-              </button>
-            </div>
+const STYLES = `
+:root { color-scheme: dark; }
+html, body, #root {
+  margin: 0 !important; padding: 0 !important; width: 100% !important;
+  height: 100% !important; max-width: none !important; min-width: 0 !important;
+  overflow: hidden !important; background: #1e293b !important;
+}
+body, #root { display: block !important; text-align: left !important; }
+.dg-tv, .dg-tv * { box-sizing: border-box; }
+.dg-tv {
+  --tv-font: clamp(20px, 1.45vw, 56px);
+  position: fixed; inset: 0; z-index: 9999; width: 100%; height: 100%;
+  display: flex; flex-direction: column; gap: clamp(14px, 1.2vw, 46px);
+  padding: clamp(20px, 2vw, 76px); overflow: hidden;
+  background: #1e293b; color: #f8fafc;
+  font-family: Pretendard, 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+  font-weight: 700; line-height: 1.45; text-align: left;
+}
+.dg-tv-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-shrink: 0; }
+.dg-tv-heading { display: flex; align-items: center; gap: clamp(12px, 1vw, 38px); white-space: nowrap; }
+.dg-tv h1 { margin: 0; color: #f8fafc; font-size: clamp(26px, 1.85vw, 72px); font-weight: 700; line-height: 1.3; }
+.dg-tv-icon { width: 1em; height: 1em; border: 3px solid #60a5fa; border-radius: 50%; position: relative; font-size: clamp(26px, 1.85vw, 72px); flex-shrink: 0; }
+.dg-tv-icon::before { content: ''; position: absolute; left: 46%; top: 16%; height: 34%; width: 3px; background: #60a5fa; }
+.dg-tv-icon::after { content: ''; position: absolute; left: 46%; top: 46%; width: 28%; height: 3px; background: #60a5fa; transform: rotate(28deg); transform-origin: left center; }
+.dg-tv-count { border-radius: 999px; background: #233b70; color: #93c5fd; font-size: var(--tv-font); padding: .3em .85em; font-variant-numeric: tabular-nums; }
+.dg-tv-clock { display: block; white-space: nowrap; border: 1px solid #475569; border-radius: 9px; background: #334155; padding: .45em .9em; font-size: clamp(16px, 1.25vw, 48px); font-variant-numeric: tabular-nums; }
+.dg-tv-clock span { color: #60a5fa; margin-left: .5em; }
+.dg-tv-board { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.dg-tv-table { width: 100%; margin: 0; border-collapse: collapse; table-layout: fixed; font-size: var(--tv-font); }
+.dg-tv-table th { text-align: left; font-weight: 700; color: #93c5fd; border-bottom: 2px solid #3b82f6; padding: .2em 1em .5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dg-tv-row { height: clamp(54px, 4vw, 154px); }
+.dg-tv-table td { padding: 0 1em; border-bottom: 1px solid #475569; line-height: 1.45; vertical-align: middle; overflow: hidden; font-weight: 700; }
+.dg-tv-table tr:last-child td { border-bottom: 0; }
+.dg-tv-table td:first-child { font-variant-numeric: tabular-nums; }
+.dg-tv-cell { display: block; width: 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.dg-tv-empty { margin: 0; padding: 12vh 1em; text-align: center; color: #94a3b8; font-size: var(--tv-font); }
+.dg-tv-bottom { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 1.4em; flex-shrink: 0; color: #94a3b8; font-size: clamp(14px, .95vw, 36px); }
+.dg-tv-error { color: #fbbf24; margin: 0; font-weight: 500; }
+.dg-tv-measure { position: absolute; top: 0; left: 0; visibility: hidden; pointer-events: none; }
+@media (max-width: 850px) {
+  .dg-tv { padding: 16px; }
+  .dg-tv-header { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+  .dg-tv-clock { margin-left: auto; }
+  .dg-tv-table th, .dg-tv-table td { padding-inline: .5em; }
+}
+`;
+
+function Columns() {
+  return (
+    <colgroup>
+      <col style={{ width: '17%' }} /><col style={{ width: '30%' }} />
+      <col style={{ width: '38%' }} /><col style={{ width: '15%' }} />
+    </colgroup>
+  );
+}
+
+export default function App() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState('');
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [page, setPage] = useState(0);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLTableSectionElement>(null);
+  const measuringRowRef = useRef<HTMLTableRowElement>(null);
+
+  useLayoutEffect(() => {
+    const board = boardRef.current;
+    const header = headerRef.current;
+    const row = measuringRowRef.current;
+    if (!board || !header || !row) return;
+    const measure = () => {
+      const rowHeight = row.getBoundingClientRect().height;
+      if (rowHeight <= 0) return;
+      const available = board.clientHeight - header.getBoundingClientRect().height - 2;
+      setRowsPerPage(Math.max(1, Math.floor(available / rowHeight)));
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    observer?.observe(board);
+    observer?.observe(header);
+    observer?.observe(row);
+    return () => {
+      window.removeEventListener('resize', measure);
+      observer?.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let inFlight = false;
+    let activeController: AbortController | null = null;
+    let lastUpdated: Date | null = null;
+    document.title = '디자인겟 · 작업 대기 목록';
+
+    const refresh = async () => {
+      if (disposed || inFlight) return;
+      inFlight = true;
+      const controller = new AbortController();
+      activeController = controller;
+      const timeout = window.setTimeout(() => controller.abort(), 15_000);
+      try {
+        const query = new URLSearchParams({
+          tqx: 'out:json', headers: '1', sheet: CONFIG.sheetName, _: String(Date.now()),
+        });
+        const response = await fetch(
+          `https://docs.google.com/spreadsheets/d/${CONFIG.sheetId}/gviz/tq?${query}`,
+          { signal: controller.signal, cache: 'no-store' },
+        );
+        if (!response.ok) throw new Error('주문현황 시트 연결을 확인해 주세요.');
+        const result = parseOrders(await response.text());
+        if (disposed) return;
+        lastUpdated = new Date();
+        setOrders(result);
+        setLoaded(true);
+        setError('');
+      } catch {
+        if (disposed) return;
+        const last = lastUpdated
+          ? ` · 마지막 조회 ${lastUpdated.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour12: false })}`
+          : '';
+        setError(`연결 지연 · 30초마다 다시 조회합니다${last}`);
+      } finally {
+        window.clearTimeout(timeout);
+        inFlight = false;
+      }
+    };
+    const refreshWhenVisible = () => { if (!document.hidden) void refresh(); };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), CONFIG.refreshMilliseconds);
+    window.addEventListener('online', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      disposed = true;
+      activeController?.abort();
+      window.clearInterval(timer);
+      window.removeEventListener('online', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, []);
+
+  const pageCount = Math.max(1, Math.ceil(orders.length / rowsPerPage));
+  const currentPage = page % pageCount;
+  useEffect(() => {
+    if (pageCount < 2) return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setPage((previous) => (previous + 1) % pageCount);
+    }, CONFIG.pageMilliseconds);
+    return () => window.clearInterval(timer);
+  }, [pageCount]);
+  const visibleOrders = useMemo(
+    () => orders.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage),
+    [orders, currentPage, rowsPerPage],
+  );
+
+  return (
+    <>
+      <style>{STYLES}</style>
+      <main className="dg-tv">
+        <header className="dg-tv-header">
+          <div className="dg-tv-heading">
+            <span className="dg-tv-icon" aria-hidden="true" />
+            <h1>작업 대기 목록</h1>
+            <span className="dg-tv-count" aria-label="작업대기 총건수">
+              {loaded ? `${orders.length.toLocaleString('ko-KR')}건` : '—건'}
+            </span>
           </div>
-
-          {/* 작업 대기 목록: 🌟 너무 두꺼운 설정 제거하고 기본 볼드(font-bold)체로 깔끔하게 롤백 */}
-          <div 
-            ref={tableContainerRef} 
-            className={`bg-white dark:bg-slate-800 flex flex-col transition-all duration-300 ${
-              isFullscreen 
-                ? 'fixed inset-0 z-[9999] w-full h-full !mt-0 !rounded-none border-none p-10 overflow-auto bg-white dark:bg-slate-900' 
-                : 'shadow-sm border border-slate-200 dark:border-slate-700 p-6 rounded-2xl overflow-hidden relative'
-            }`}
-          >
-            {/* mb-2 였던 여백을 출고 대기 목록과 동일하게 mb-4로 변경했습니다. */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 shrink-0">
-              <div className="flex items-center gap-3">
-                <Clock className={`text-blue-500 dark:text-blue-400 ${isFullscreen ? 'w-8 h-8' : 'w-5 h-5'}`} />
-                <h2 className={`text-slate-900 dark:text-white whitespace-nowrap font-bold ${isFullscreen ? 'text-[1.7rem]' : 'text-lg'}`}>작업 대기 목록</h2>
-                <div className="flex items-center ml-1">
-                  <span className={`bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 rounded-full shadow-sm font-bold ${isFullscreen ? 'text-[21px] px-5 py-2' : 'text-sm px-4 py-1'}`}>
-                    {dashboardStats.pendingList.length}건
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-5">
-                {/* 🌟 건수 뱃지(6건)와 글자 크기 및 박스 여백을 완벽하게 동일하게 맞춤 (flex items-center 추가 및 패딩 조정) */}
-                <div className={`flex items-center text-slate-900 dark:text-slate-200 bg-slate-50 dark:bg-slate-700 rounded-lg border border-slate-100 dark:border-slate-600 font-bold ${isFullscreen ? 'text-[21px] px-5 py-2' : 'text-sm px-4 py-1'}`}>
-                  {formattedDate} 
-                  <span className="ml-2 text-blue-600 dark:text-blue-400 font-bold">{formattedTime}</span>
-                </div>
-                <button onClick={toggleFullscreen} className={`text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors ${isFullscreen ? 'p-2' : 'p-1.5'}`}>
-                  {isFullscreen ? <Minimize className="w-7 h-7" /> : <Maximize className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto flex-1 scroll-smooth">
-              <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 z-20 shadow-sm">
-                  <tr className={`text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-slate-800 ${isFullscreen ? 'border-b-2 border-blue-300 dark:border-blue-600' : 'border-b border-blue-100 dark:border-blue-900/50'}`}>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>납기예정일</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>상호</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>품목</th>
-                    <th className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>후가공</th>
-                  </tr>
-                </thead>
-                <tbody className={`text-slate-900 dark:text-slate-100 ${isFullscreen ? 'divide-y-2 divide-slate-300 dark:divide-slate-600' : 'divide-y divide-slate-100 dark:divide-slate-700/50'}`}>
-                  {dashboardStats.pendingList.length > 0 ? (
-                    dashboardStats.pendingList.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors bg-white dark:bg-slate-800">
-                        <td className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>{item.deliveryDate}</td>
-                        <td className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>{item.company}</td>
-                        <td className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>{item.item}</td>
-                        <td className={`whitespace-nowrap font-bold ${isFullscreen ? 'px-6 py-2 text-[21px]' : 'px-4 py-3 text-sm'}`}>{item.postProc}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr className="bg-white dark:bg-slate-800">
-                      <td colSpan="4" className={`text-center text-slate-500 dark:text-slate-400 font-bold ${isFullscreen ? 'py-8 text-[21px]' : 'py-10 text-sm'}`}>현재 대기 중인 작업이 없습니다.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <Clock />
+        </header>
+        <div className="dg-tv-board" ref={boardRef}>
+          <table className="dg-tv-table" aria-label="작업대기 주문">
+            <Columns />
+            <thead ref={headerRef}>
+              <tr>{['납기예정일', '상호', '품목', '후가공'].map((label) => <th scope="col" key={label}>{label}</th>)}</tr>
+            </thead>
+            <tbody>
+              {visibleOrders.map((order) => (
+                <tr className="dg-tv-row" key={order.index}>
+                  {[order.due, order.company, order.item, order.finishing].map((value, column) => (
+                    <td key={column}><span className="dg-tv-cell" title={value}>{value}</span></td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {orders.length === 0 && <p className="dg-tv-empty">
+            {loaded ? '작업대기 내역이 없습니다.' : error ? '시트 연결을 확인해 주세요.' : '작업대기 목록을 불러오는 중입니다.'}
+          </p>}
+          <table className="dg-tv-table dg-tv-measure" aria-hidden="true">
+            <Columns />
+            <tbody><tr className="dg-tv-row" ref={measuringRowRef}>
+              {['날짜', '상호', '품목', '후가공'].map((label) => <td key={label}><span className="dg-tv-cell">{label}</span></td>)}
+            </tr></tbody>
+          </table>
         </div>
-      </div>
-    </div>
+        <footer className="dg-tv-bottom">
+          <p className="dg-tv-error" role="status">{error}</p>
+          {pageCount > 1 && <span>{currentPage + 1} / {pageCount}</span>}
+        </footer>
+      </main>
+    </>
   );
 }
