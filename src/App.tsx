@@ -147,7 +147,7 @@ body, #root { display: block !important; text-align: left !important; }
 .dg-tv-table td:first-child { font-variant-numeric: tabular-nums; }
 .dg-tv-cell { display: block; width: 100%; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .dg-tv-empty { margin: 0; padding: 12vh 1em; text-align: center; color: #94a3b8; font-size: var(--tv-font); }
-.dg-tv-bottom { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 1.4em; flex-shrink: 0; color: #94a3b8; font-size: clamp(14px, .95vw, 36px); }
+.dg-tv-bottom { position: absolute; bottom: 4px; left: 2vw; right: 2vw; display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 1.4em; flex-shrink: 0; color: #94a3b8; font-size: clamp(14px, .95vw, 36px); }
 .dg-tv-error { color: #fbbf24; margin: 0; font-weight: 500; }
 @media (max-width: 850px) {
   .dg-tv { padding: 16px; }
@@ -178,13 +178,16 @@ export default function App() {
     const header = headerRef.current;
     if (!board || !header) return;
     const measure = () => {
-      // 기존 8건 버전의 행 높이를 기준으로 정확히 2%만 줄입니다.
+      // 화면의 실제 목록 높이를 10줄에 배분해 마지막 줄이 잘리지 않게 합니다.
       const preferredFont = Math.min(56, Math.max(20, window.innerWidth * 0.0145));
-      const fittedFont = Math.min(preferredFont, board.clientHeight / 15);
-      board.style.setProperty('--tv-font', `${Math.max(1, fittedFont)}px`);
-      const available = board.clientHeight - header.getBoundingClientRect().height - 2;
-      const preferredHeight = Math.min(116, Math.max(42, window.innerWidth * 0.03));
-      const rowHeight = Math.min(preferredHeight, Math.max(1, available / 8)) * 0.98;
+      const preferredHeight = Math.min(116, Math.max(42, window.innerWidth * 0.03)) * 0.98;
+      // 글꼴부터 적용한 뒤 열 제목의 실제 높이를 측정합니다.
+      const initialFont = Math.min(preferredFont, Math.max(1, board.clientHeight / 15));
+      board.style.setProperty('--tv-font', `${initialFont}px`);
+      const available = Math.max(1, board.clientHeight - header.getBoundingClientRect().height - 4);
+      const rowHeight = Math.min(preferredHeight, available / CONFIG.visibleLimit);
+      const fittedFont = Math.min(initialFont, Math.max(1, (rowHeight - 2) / 1.45));
+      board.style.setProperty('--tv-font', `${fittedFont}px`);
       board.style.setProperty('--tv-row-height', `${rowHeight}px`);
     };
     measure();
@@ -287,9 +290,9 @@ export default function App() {
             {loaded ? '작업대기 내역이 없습니다.' : error ? '시트 연결을 확인해 주세요.' : '작업대기 목록을 불러오는 중입니다.'}
           </p>}
         </div>
-        <footer className="dg-tv-bottom">
+        {error && <footer className="dg-tv-bottom">
           <p className="dg-tv-error" role="status">{error}</p>
-        </footer>
+        </footer>}
       </main>
     </>
   );
