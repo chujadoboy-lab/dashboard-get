@@ -1,11 +1,11 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // 디자인겟 대시보드와 같은 구글시트입니다.
 const CONFIG = {
   sheetId: '1HHT5zM80NA0WDa2Zq71MANTaRMqBt5Smr1Pdvz1x_6w',
   sheetName: '주문현황',
   refreshMilliseconds: 30_000,
-  pageMilliseconds: 12_000,
+  visibleLimit: 8,
 };
 
 interface Order {
@@ -141,7 +141,7 @@ body, #root { display: block !important; text-align: left !important; }
 .dg-tv-board { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 .dg-tv-table { width: 100%; margin: 0; border-collapse: collapse; table-layout: fixed; font-size: var(--tv-font); }
 .dg-tv-table th { text-align: left; font-weight: 700; color: #93c5fd; border-bottom: 2px solid #3b82f6; padding: .2em 1em .5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dg-tv-row { height: clamp(54px, 4vw, 154px); }
+.dg-tv-row { height: var(--tv-row-height, clamp(42px, 3vw, 116px)); }
 .dg-tv-table td { padding: 0 1em; border-bottom: 1px solid #475569; line-height: 1.45; vertical-align: middle; overflow: hidden; font-weight: 700; }
 .dg-tv-table tr:last-child td { border-bottom: 0; }
 .dg-tv-table td:first-child { font-variant-numeric: tabular-nums; }
@@ -149,7 +149,6 @@ body, #root { display: block !important; text-align: left !important; }
 .dg-tv-empty { margin: 0; padding: 12vh 1em; text-align: center; color: #94a3b8; font-size: var(--tv-font); }
 .dg-tv-bottom { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 1.4em; flex-shrink: 0; color: #94a3b8; font-size: clamp(14px, .95vw, 36px); }
 .dg-tv-error { color: #fbbf24; margin: 0; font-weight: 500; }
-.dg-tv-measure { position: absolute; top: 0; left: 0; visibility: hidden; pointer-events: none; }
 @media (max-width: 850px) {
   .dg-tv { padding: 16px; }
   .dg-tv-header { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
@@ -161,8 +160,8 @@ body, #root { display: block !important; text-align: left !important; }
 function Columns() {
   return (
     <colgroup>
-      <col style={{ width: '17%' }} /><col style={{ width: '30%' }} />
-      <col style={{ width: '38%' }} /><col style={{ width: '15%' }} />
+      <col style={{ width: '17%' }} /><col style={{ width: '20%' }} />
+      <col style={{ width: '48%' }} /><col style={{ width: '15%' }} />
     </colgroup>
   );
 }
@@ -171,29 +170,28 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [page, setPage] = useState(0);
   const boardRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLTableSectionElement>(null);
-  const measuringRowRef = useRef<HTMLTableRowElement>(null);
 
   useLayoutEffect(() => {
     const board = boardRef.current;
     const header = headerRef.current;
-    const row = measuringRowRef.current;
-    if (!board || !header || !row) return;
+    if (!board || !header) return;
     const measure = () => {
-      const rowHeight = row.getBoundingClientRect().height;
-      if (rowHeight <= 0) return;
+      // 화면 높이가 작아져도 8개 행이 모두 보이도록 간격을 맞춥니다.
+      const preferredFont = Math.min(56, Math.max(20, window.innerWidth * 0.0145));
+      const fittedFont = Math.min(preferredFont, board.clientHeight / 15);
+      board.style.setProperty('--tv-font', `${Math.max(1, fittedFont)}px`);
       const available = board.clientHeight - header.getBoundingClientRect().height - 2;
-      setRowsPerPage(Math.max(1, Math.floor(available / rowHeight)));
+      const preferredHeight = Math.min(116, Math.max(42, window.innerWidth * 0.03));
+      const rowHeight = Math.min(preferredHeight, Math.max(1, available / CONFIG.visibleLimit));
+      board.style.setProperty('--tv-row-height', `${rowHeight}px`);
     };
     measure();
     window.addEventListener('resize', measure);
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
     observer?.observe(board);
     observer?.observe(header);
-    observer?.observe(row);
     return () => {
       window.removeEventListener('resize', measure);
       observer?.disconnect();
@@ -253,19 +251,7 @@ export default function App() {
     };
   }, []);
 
-  const pageCount = Math.max(1, Math.ceil(orders.length / rowsPerPage));
-  const currentPage = page % pageCount;
-  useEffect(() => {
-    if (pageCount < 2) return;
-    const timer = window.setInterval(() => {
-      if (!document.hidden) setPage((previous) => (previous + 1) % pageCount);
-    }, CONFIG.pageMilliseconds);
-    return () => window.clearInterval(timer);
-  }, [pageCount]);
-  const visibleOrders = useMemo(
-    () => orders.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage),
-    [orders, currentPage, rowsPerPage],
-  );
+  const visibleOrders = orders.slice(0, CONFIG.visibleLimit);
 
   return (
     <>
@@ -300,16 +286,9 @@ export default function App() {
           {orders.length === 0 && <p className="dg-tv-empty">
             {loaded ? '작업대기 내역이 없습니다.' : error ? '시트 연결을 확인해 주세요.' : '작업대기 목록을 불러오는 중입니다.'}
           </p>}
-          <table className="dg-tv-table dg-tv-measure" aria-hidden="true">
-            <Columns />
-            <tbody><tr className="dg-tv-row" ref={measuringRowRef}>
-              {['날짜', '상호', '품목', '후가공'].map((label) => <td key={label}><span className="dg-tv-cell">{label}</span></td>)}
-            </tr></tbody>
-          </table>
         </div>
         <footer className="dg-tv-bottom">
           <p className="dg-tv-error" role="status">{error}</p>
-          {pageCount > 1 && <span>{currentPage + 1} / {pageCount}</span>}
         </footer>
       </main>
     </>
