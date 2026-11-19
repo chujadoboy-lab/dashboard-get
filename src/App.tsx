@@ -178,13 +178,13 @@ export default function App() {
     const header = headerRef.current;
     if (!board || !header) return;
     const measure = () => {
-      // 화면 높이에 맞춰 설정한 건수가 모두 보이도록 간격을 맞춥니다.
+      // 행 간격과 글자 크기는 기존 8건 표시 버전의 기준을 유지합니다.
       const preferredFont = Math.min(56, Math.max(20, window.innerWidth * 0.0145));
-      const fittedFont = Math.min(preferredFont, board.clientHeight / (CONFIG.visibleLimit * 1.6 + 2.2));
+      const fittedFont = Math.min(preferredFont, board.clientHeight / 15);
       board.style.setProperty('--tv-font', `${Math.max(1, fittedFont)}px`);
       const available = board.clientHeight - header.getBoundingClientRect().height - 2;
       const preferredHeight = Math.min(116, Math.max(42, window.innerWidth * 0.03));
-      const rowHeight = Math.min(preferredHeight, Math.max(1, available / CONFIG.visibleLimit));
+      const rowHeight = Math.min(preferredHeight, Math.max(1, available / 8));
       board.style.setProperty('--tv-row-height', `${rowHeight}px`);
     };
     measure();
