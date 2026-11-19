@@ -5,7 +5,7 @@ const CONFIG = {
   sheetId: '1HHT5zM80NA0WDa2Zq71MANTaRMqBt5Smr1Pdvz1x_6w',
   sheetName: '주문현황',
   refreshMilliseconds: 30_000,
-  visibleLimit: 8,
+  visibleLimit: 10,
 };
 
 interface Order {
@@ -178,9 +178,9 @@ export default function App() {
     const header = headerRef.current;
     if (!board || !header) return;
     const measure = () => {
-      // 화면 높이가 작아져도 8개 행이 모두 보이도록 간격을 맞춥니다.
+      // 화면 높이에 맞춰 설정한 건수가 모두 보이도록 간격을 맞춥니다.
       const preferredFont = Math.min(56, Math.max(20, window.innerWidth * 0.0145));
-      const fittedFont = Math.min(preferredFont, board.clientHeight / 15);
+      const fittedFont = Math.min(preferredFont, board.clientHeight / (CONFIG.visibleLimit * 1.6 + 2.2));
       board.style.setProperty('--tv-font', `${Math.max(1, fittedFont)}px`);
       const available = board.clientHeight - header.getBoundingClientRect().height - 2;
       const preferredHeight = Math.min(116, Math.max(42, window.innerWidth * 0.03));
